@@ -1,0 +1,6 @@
+{
+  "name": "LifeLedger — 6-Role Organ Custody & Cold-Ischemia Network",
+  "description": "Decentralized organ procurement, cold-chain logistics, NOTTO allocation clearance, surgical OR implantation, regulatory oversight, and public verification across 6 isolated role portals.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
