@@ -3,7 +3,7 @@ import { X, Heart, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { OrganRecord } from '../utils/roleWorkflow';
 
-interface OrganPreset {
+interface OrganFormState {
   organId: string;
   organType: string;
   donorId: string;
@@ -17,46 +17,18 @@ interface OrganPreset {
   notes: string;
 }
 
-const ORGAN_PRESETS: Record<'kidney' | 'heart' | 'liver', OrganPreset> = {
-  kidney: {
-    organId: 'ORG-KID-8102',
-    organType: 'Kidney (Left)',
-    donorId: 'DNR-DEL-4091',
-    donorBloodType: 'O+',
-    hlaMarker: '6/6 HLA-Matched (A*02, B*44, DRB1*04)',
-    ischemicLimitHours: 24,
-    recipientId: 'RCP-4109',
-    recipientHospital: 'Apollo Multi-Specialty Transplant Surgical Center',
-    preservationProtocol: 'University of Wisconsin (UW) Cold Solution',
-    initialTemp: 2.4,
-    notes: 'Brain death confirmed by two independent neurological evaluations. Next-of-kin Form 8 consent cryptographically signed.',
-  },
-  heart: {
-    organId: 'ORG-HRT-3109',
-    organType: 'Heart (Whole)',
-    donorId: 'DNR-BLR-8821',
-    donorBloodType: 'A+',
-    hlaMarker: '5/6 HLA-Matched (Cardiac STAT 1A)',
-    ischemicLimitHours: 4,
-    recipientId: 'RCP-8831',
-    recipientHospital: 'Apollo Multi-Specialty Transplant Surgical Center',
-    preservationProtocol: 'Custodiol HTK Hypothermic Cardioplegia',
-    initialTemp: 1.8,
-    notes: 'STAT Priority 1A. Direct green-corridor air ambulance dispatch required. Echocardiogram LVEF 65%.',
-  },
-  liver: {
-    organId: 'ORG-LVR-6604',
-    organType: 'Liver (Whole)',
-    donorId: 'DNR-HYD-7712',
-    donorBloodType: 'B+',
-    hlaMarker: '6/6 HLA-Matched (PRA < 10%)',
-    ischemicLimitHours: 12,
-    recipientId: 'RCP-3301',
-    recipientHospital: 'Apollo Multi-Specialty Transplant Surgical Center',
-    preservationProtocol: 'Celsior Hypothermic Perfusion Solution',
-    initialTemp: 3.1,
-    notes: 'Cadaveric donor liver procured in sterile surgical field. Biopsy confirms zero micro-steatosis.',
-  },
+const EMPTY_FORM: OrganFormState = {
+  organId: '',
+  organType: 'Kidney (Left)',
+  donorId: '',
+  donorBloodType: 'O+',
+  hlaMarker: '',
+  ischemicLimitHours: 24,
+  recipientId: '',
+  recipientHospital: 'Apollo Multi-Specialty Transplant Surgical Center',
+  preservationProtocol: 'University of Wisconsin (UW) Cold Solution',
+  initialTemp: 2.8,
+  notes: '',
 };
 
 interface CreateBatchModalProps {
@@ -67,17 +39,13 @@ interface CreateBatchModalProps {
 
 export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateBatchModalProps) {
   const { broadcastSync } = useAuth();
-  const [formData, setFormData] = useState<OrganPreset>(ORGAN_PRESETS.kidney);
+  const [formData, setFormData] = useState<OrganFormState>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        ...ORGAN_PRESETS.kidney,
-        organId: 'ORG-KID-' + Math.floor(1000 + Math.random() * 9000),
-        donorId: 'DNR-DEL-' + Math.floor(1000 + Math.random() * 9000),
-      });
+      setFormData(EMPTY_FORM);
       setError(null);
       setLoading(false);
     }
@@ -85,20 +53,10 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
 
   if (!isOpen) return null;
 
-  const loadPreset = (key: 'kidney' | 'heart' | 'liver') => {
-    const preset = ORGAN_PRESETS[key];
-    setFormData({
-      ...preset,
-      organId: preset.organId.slice(0, 8) + Math.floor(1000 + Math.random() * 9000),
-      donorId: preset.donorId.slice(0, 8) + Math.floor(1000 + Math.random() * 9000),
-    });
-    setError(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.organId.trim() || !formData.donorId.trim() || !formData.recipientId.trim()) {
-      setError('Organ ID, Donor ID, and Target Recipient ID are required.');
+      setError('Organ Specimen ID, Donor ID, and Matched Recipient ID are required.');
       return;
     }
 
@@ -114,6 +72,10 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
         },
         body: JSON.stringify({
           ...formData,
+          organId: formData.organId.trim().toUpperCase(),
+          donorId: formData.donorId.trim().toUpperCase(),
+          recipientId: formData.recipientId.trim().toUpperCase(),
+          hlaMarker: formData.hlaMarker.trim() || 'HLA Crossmatch Verified',
           ischemicLimitHours: Number(formData.ischemicLimitHours),
           initialTemp: Number(formData.initialTemp),
         }),
@@ -167,34 +129,6 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
           </button>
         </div>
 
-        {/* Quick Organ Preset Bar */}
-        <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-slate-600">1-Click Clinical Presets:</span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => loadPreset('kidney')}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              Kidney Graft (24h Window)
-            </button>
-            <button
-              type="button"
-              onClick={() => loadPreset('heart')}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              Heart Graft (4h STAT)
-            </button>
-            <button
-              type="button"
-              onClick={() => loadPreset('liver')}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-slate-800 font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              Liver Graft (12h Window)
-            </button>
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 flex items-center gap-2">
@@ -206,21 +140,22 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label htmlFor="organ-id-input" className="block font-semibold text-slate-700 mb-1">
-                Organ Specimen ID
+                Organ Specimen ID *
               </label>
               <input
                 id="organ-id-input"
                 type="text"
                 required
+                placeholder="e.g. ORG-KID-101"
                 value={formData.organId}
                 onChange={(e) => setFormData({ ...formData, organId: e.target.value })}
-                className="w-full px-3 py-2 font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
+                className="w-full px-3 py-2 font-mono uppercase font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
               <label htmlFor="organ-type-select" className="block font-semibold text-slate-700 mb-1">
-                Organ Type
+                Organ Type *
               </label>
               <select
                 id="organ-type-select"
@@ -240,7 +175,7 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
 
             <div>
               <label htmlFor="blood-group-select" className="block font-semibold text-slate-700 mb-1">
-                Donor ABO Blood Group
+                Donor ABO Blood Group *
               </label>
               <select
                 id="blood-group-select"
@@ -263,21 +198,22 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label htmlFor="donor-id-input" className="block font-semibold text-slate-700 mb-1">
-                Anonymized Donor ID
+                Anonymized Donor ID *
               </label>
               <input
                 id="donor-id-input"
                 type="text"
                 required
+                placeholder="e.g. DNR-MUM-01"
                 value={formData.donorId}
                 onChange={(e) => setFormData({ ...formData, donorId: e.target.value })}
-                className="w-full px-3 py-2 font-mono bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
+                className="w-full px-3 py-2 font-mono uppercase bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
               <label htmlFor="ischemia-limit-input" className="block font-semibold text-slate-700 mb-1">
-                Max Cold-Ischemia Limit (Hours)
+                Max Cold-Ischemia Limit (Hours) *
               </label>
               <input
                 id="ischemia-limit-input"
@@ -293,7 +229,7 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
 
             <div>
               <label htmlFor="initial-temp-input" className="block font-semibold text-slate-700 mb-1">
-                Initial Perfusion Temp (°C)
+                Initial Perfusion Temp (°C) *
               </label>
               <input
                 id="initial-temp-input"
@@ -312,12 +248,13 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="hla-marker-input" className="block font-semibold text-slate-700 mb-1">
-                HLA Histocompatibility Profile
+                HLA Histocompatibility Profile *
               </label>
               <input
                 id="hla-marker-input"
                 type="text"
                 required
+                placeholder="e.g. 6/6 HLA-Matched"
                 value={formData.hlaMarker}
                 onChange={(e) => setFormData({ ...formData, hlaMarker: e.target.value })}
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
@@ -326,15 +263,16 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
 
             <div>
               <label htmlFor="recipient-id-input" className="block font-semibold text-slate-700 mb-1">
-                Matched Recipient ID
+                Matched Recipient ID *
               </label>
               <input
                 id="recipient-id-input"
                 type="text"
                 required
+                placeholder="e.g. RCP-1001"
                 value={formData.recipientId}
                 onChange={(e) => setFormData({ ...formData, recipientId: e.target.value })}
-                className="w-full px-3 py-2 font-mono bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
+                className="w-full px-3 py-2 font-mono uppercase bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"
               />
             </div>
           </div>
@@ -346,6 +284,7 @@ export default function CreateBatchModal({ isOpen, onClose, onSuccess }: CreateB
             <textarea
               id="clinical-notes-input"
               rows={2}
+              placeholder="Enter neurological brain-death confirmation and preservation flush notes..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-blue-600"

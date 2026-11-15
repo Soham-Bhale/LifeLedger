@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   ShieldX,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import QRScannerModal from '../components/QRScannerModal';
 import CertificateModal from '../components/CertificateModal';
 import ReportModal from '../components/ReportModal';
@@ -18,17 +19,9 @@ interface VerifyPageProps {
   initialBatchId?: string | null;
 }
 
-const SAMPLE_IDS = [
-  { id: 'ORG-KID-8041', label: 'ORG-KID-8041', note: 'Kidney · Harvested (Tab 1)' },
-  { id: 'ORG-HRT-2094', label: 'ORG-HRT-2094', note: 'Heart · In Transit (Tab 2)' },
-  { id: 'ORG-PAN-6210', label: 'ORG-PAN-6210', note: 'Pancreas · Allocation (Tab 3)' },
-  { id: 'ORG-LVR-5512', label: 'ORG-LVR-5512', note: 'Liver · Hospital OR (Tab 4)' },
-  { id: 'ORG-COR-3390', label: 'ORG-COR-3390', note: 'Cornea · Quarantined Hold' },
-  { id: 'ORG-FAKE-999', label: 'ORG-FAKE-999', note: 'Unregistered Trafficking Test' },
-];
-
 export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
-  const [organIdInput, setOrganIdInput] = useState(initialBatchId || 'ORG-KID-8041');
+  const { organs } = useAuth();
+  const [organIdInput, setOrganIdInput] = useState(initialBatchId || '');
   const [loading, setLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>(null);
@@ -42,7 +35,7 @@ export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
 
   const performVerification = useCallback(
     async (idToVerify?: string) => {
-      const id = (idToVerify || organIdInput || '').trim().toUpperCase();
+      const id = (idToVerify ?? organIdInput ?? '').trim().toUpperCase();
       if (!id) return;
 
       setLoading(true);
@@ -74,9 +67,10 @@ export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
   );
 
   useEffect(() => {
-    const target = initialBatchId || 'ORG-KID-8041';
-    setOrganIdInput(target);
-    performVerification(target);
+    if (initialBatchId) {
+      setOrganIdInput(initialBatchId);
+      performVerification(initialBatchId);
+    }
   }, [initialBatchId, performVerification]);
 
   const handleCopy = (text: string, key: string) => {
@@ -87,7 +81,7 @@ export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Search & 1-Click Sample Bar */}
+      {/* Search Bar */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
         <div>
           <h2 className="text-base font-bold text-slate-900 font-display">
@@ -113,13 +107,13 @@ export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
             type="text"
             value={organIdInput}
             onChange={(e) => setOrganIdInput(e.target.value)}
-            placeholder="Enter Organ ID (e.g. ORG-KID-8041)..."
+            placeholder="Enter Organ Specimen ID to verify on-chain..."
             className="flex-1 bg-white border border-slate-300 rounded-lg px-3.5 py-2.5 font-mono uppercase font-bold text-xs text-slate-900 focus:outline-none focus:border-blue-600"
           />
           <button
             type="submit"
-            disabled={loading}
-            className="px-5 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            disabled={loading || !organIdInput.trim()}
+            className="px-5 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Verify Organ ID</span>
@@ -134,38 +128,52 @@ export default function VerifyPage({ initialBatchId }: VerifyPageProps) {
           </button>
         </form>
 
-        {/* 1-Click Demo Presets */}
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-semibold text-slate-500 mr-1">1-Click Test Specimens:</span>
-          {SAMPLE_IDS.map((item) => {
-            const isSelected = organIdInput.toUpperCase() === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setOrganIdInput(item.id);
-                  performVerification(item.id);
-                }}
-                className={`px-3 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  isSelected
-                    ? 'bg-slate-900 text-white border-slate-900 font-semibold'
-                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                }`}
-              >
-                <span className="font-mono font-bold">{item.label}</span>
-                <span className={`ml-1.5 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                  · {item.note}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Dynamically show actual organs registered on the ledger */}
+        {organs.length > 0 && (
+          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-semibold text-slate-500 mr-1">Registered Ledger Organs:</span>
+            {organs.map((o) => {
+              const id = o.organId || o.batchId || '';
+              const isSelected = organIdInput.toUpperCase() === id.toUpperCase();
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setOrganIdInput(id);
+                    performVerification(id);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg border text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    isSelected
+                      ? 'bg-slate-900 text-white border-slate-900 font-semibold'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <span className="font-mono font-bold">{id}</span>
+                  <span className={`ml-1.5 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                    · {o.organType} · {o.stage}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {loading && (
         <div className="bg-white p-8 rounded-xl border border-slate-200 text-center text-xs font-mono text-slate-500">
           Querying LifeLedger PoA Smart Contract Registry...
+        </div>
+      )}
+
+      {!loading && !result && !errorResult && (
+        <div className="bg-white p-8 rounded-xl border border-slate-200 text-center space-y-1.5">
+          <div className="text-sm font-bold text-slate-800 font-display">
+            Ready to Verify Organ Provenance
+          </div>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Enter an Organ Specimen ID registered in Tab 1 (OPO Harvest) or scan its QR code to inspect its Form 8 donor consent certificate, cold-ischemia window, and custody hops. Entering an unregistered ID will trigger a counterfactual trafficking alert.
+          </p>
         </div>
       )}
 

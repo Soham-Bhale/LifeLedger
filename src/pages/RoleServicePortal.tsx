@@ -307,7 +307,7 @@ export default function RoleServicePortal() {
       broadcastSync();
       setActionBanner({
         type: 'success',
-        message: 'Demo dataset restored to initial 6-organ state across all 6 tabs.',
+        message: 'Ledger cleared across all 6 role tabs (0 organs, 0 alerts).',
       });
     } catch (err: unknown) {
       setActionBanner({
@@ -366,7 +366,7 @@ export default function RoleServicePortal() {
                 className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${busyOrganId === 'RESET' ? 'animate-spin' : ''}`} />
-                <span>Reset Demo Seed Data</span>
+                <span>Clear Ledger Data</span>
               </button>
             )}
 

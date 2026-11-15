@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Link as LinkIcon,
   AlertTriangle,
@@ -8,7 +8,7 @@ import {
   Lock,
   Unlock,
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { useAuth } from '../context/AuthContext';
 
 async function sha256(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message);
@@ -38,86 +38,79 @@ interface BlockItem {
   transactions: BlockTx[];
 }
 
-const INITIAL_BLOCKS: BlockItem[] = [
-  {
-    blockNumber: 0,
-    timestamp: '2026-10-28 08:00:00 UTC',
-    validator: 'Genesis Consortium (NOTTO Multi-Sig)',
-    validatorAddr: '0x0000000000000000000000000000000000000000',
-    prevHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
-    hash: '0x8f2a1b9c3e4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-    tampered: false,
-    transactions: [
-      {
-        txHash: '0xgen01',
-        type: 'CONTRACT_DEPLOYMENT',
-        desc: 'LifeLedger.sol deployed on Ethereum PoA Consortium network',
-        sender: 'NOTTO Directorate',
-        receiver: 'Consortium Contract',
-      },
-    ],
-  },
-  {
-    blockNumber: 1,
-    timestamp: '2026-10-28 09:15:22 UTC',
-    validator: 'Lilavati Hospital OPO Node (Tab 1)',
-    validatorAddr: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    prevHash: '0x8f2a1b9c3e4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
-    hash: '0x1c3e5a7b9d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c',
-    tampered: false,
-    transactions: [
-      {
-        txHash: '0xharv01',
-        type: 'ORGAN_HARVEST',
-        desc: 'Harvested ORG-KID-8041 (Kidney, Donor: DNR-MUM-9021, Blood: O+)',
-        sender: 'Lilavati OPO',
-        receiver: 'Cryo Container #8041',
-        details: 'Brain death Form 8 consent pinned to IPFS CID; 30h cold-ischemia clock started.',
-      },
-    ],
-  },
-  {
-    blockNumber: 2,
-    timestamp: '2026-10-28 10:40:11 UTC',
-    validator: 'AeroMed Cryo-Logistics Node (Tab 2)',
-    validatorAddr: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-    prevHash: '0x1c3e5a7b9d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c',
-    hash: '0x9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b',
-    tampered: false,
-    transactions: [
-      {
-        txHash: '0xtran01',
-        type: 'CUSTODY_HANDOFF',
-        desc: 'Custody transferred from Lilavati OPO to AeroMed Air Ambulance (2.8°C)',
-        sender: 'Lilavati OPO',
-        receiver: 'AeroMed Logistics',
-      },
-    ],
-  },
-  {
-    blockNumber: 3,
-    timestamp: '2026-10-28 12:05:45 UTC',
-    validator: 'NOTTO Allocation Authority (Tab 3)',
-    validatorAddr: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
-    prevHash: '0x9b8a7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b',
-    hash: '0x4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e',
-    tampered: false,
-    transactions: [
-      {
-        txHash: '0xalloc01',
-        type: 'RECIPIENT_ALLOCATION',
-        desc: 'Cleared 6/6 HLA match to Recipient RCP-7704 at Apollo Transplant Center',
-        sender: 'NOTTO Allocation',
-        receiver: 'Apollo Hospital OR',
-      },
-    ],
-  },
-];
+const GENESIS_BLOCK: BlockItem = {
+  blockNumber: 0,
+  timestamp: 'Genesis Block · PoA Network Initialization',
+  validator: 'Genesis Consortium (NOTTO Multi-Sig)',
+  validatorAddr: '0x0000000000000000000000000000000000000000',
+  prevHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  hash: '0x8f2a1b9c3e4d5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a',
+  tampered: false,
+  transactions: [
+    {
+      txHash: '0xgen01',
+      type: 'CONTRACT_DEPLOYMENT',
+      desc: 'LifeLedger.sol deployed on Ethereum PoA Consortium network',
+      sender: 'NOTTO Directorate',
+      receiver: 'Consortium Contract',
+    },
+  ],
+};
 
 export default function BlockVisualizerPage() {
-  const [blocks, setBlocks] = useState<BlockItem[]>(INITIAL_BLOCKS);
+  const { organs } = useAuth();
+  const [blocks, setBlocks] = useState<BlockItem[]>([GENESIS_BLOCK]);
   const [tamperedBlockIndex, setTamperedBlockIndex] = useState<number | null>(null);
   const [isMinting, setIsMinting] = useState(false);
+
+  const buildChainFromLedger = useCallback(async () => {
+    const chain: BlockItem[] = [GENESIS_BLOCK];
+    let prevHash = GENESIS_BLOCK.hash;
+    let blockNum = 1;
+
+    // Build blocks chronologically from actual registered organs and their history hops
+    const chronologicalOrgans = [...organs].reverse();
+    for (const organ of chronologicalOrgans) {
+      const id = organ.organId || organ.batchId || 'ORGAN';
+      const history = organ.history || [];
+      for (const hop of history) {
+        const tx: BlockTx = {
+          txHash: hop.txHash || `0x${blockNum.toString(16).padStart(8, '0')}`,
+          type: hop.stage.toUpperCase(),
+          desc: `${id} (${organ.organType}): ${hop.notes || hop.stage}`,
+          sender: hop.from || hop.roleFrom,
+          receiver: hop.to || hop.roleTo,
+        };
+        const blockHash = await sha256(
+          JSON.stringify({
+            num: blockNum,
+            prev: prevHash,
+            txs: [tx],
+            time: hop.timestamp,
+          })
+        );
+        chain.push({
+          blockNumber: blockNum,
+          timestamp: new Date(hop.timestamp).toLocaleString(),
+          validator: `${hop.to || hop.roleTo} Validator`,
+          validatorAddr: hop.toAddress || organ.currentOwner,
+          prevHash,
+          hash: blockHash,
+          tampered: false,
+          transactions: [tx],
+        });
+        prevHash = blockHash;
+        blockNum++;
+      }
+    }
+
+    setBlocks(chain);
+    setTamperedBlockIndex(null);
+  }, [organs]);
+
+  useEffect(() => {
+    buildChainFromLedger();
+  }, [buildChainFromLedger]);
 
   const handleTamperBlock = async (blockIndex: number) => {
     const updated = [...blocks];
@@ -152,26 +145,25 @@ export default function BlockVisualizerPage() {
   };
 
   const handleRestoreLedger = () => {
-    setBlocks(INITIAL_BLOCKS);
-    setTamperedBlockIndex(null);
+    buildChainFromLedger();
   };
 
   const handleMintNewBlock = async () => {
     if (isMinting) return;
     setIsMinting(true);
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 300));
 
     const lastBlock = blocks[blocks.length - 1];
     const newBlockNumber = blocks.length;
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    const now = new Date().toLocaleString();
 
     const newTransactions: BlockTx[] = [
       {
-        txHash: '0ximplant' + Math.floor(1000 + Math.random() * 9000),
-        type: 'SURGICAL_IMPLANTATION',
-        desc: 'Apollo Hospital OR (Tab 4) confirmed successful anastomosis & reperfusion for ORG-KID-8041',
-        sender: 'Apollo Hospital OR',
-        receiver: 'Recipient RCP-7704',
+        txHash: '0xaudit' + Math.floor(1000 + Math.random() * 9000),
+        type: 'REGULATORY_AUDIT_CHECKPOINT',
+        desc: `NOTTO Regulator (Tab 5) verified ledger state (${organs.length} registered organ records)`,
+        sender: 'NOTTO Regulator',
+        receiver: 'LifeLedger.sol',
       },
     ];
 
@@ -189,8 +181,8 @@ export default function BlockVisualizerPage() {
       {
         blockNumber: newBlockNumber,
         timestamp: now,
-        validator: 'Apollo Transplant Hospital Node (Tab 4)',
-        validatorAddr: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+        validator: 'NOTTO Regulatory Validator (Tab 5)',
+        validatorAddr: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
         prevHash: lastBlock.hash,
         hash: newHash,
         tampered: false,
@@ -198,12 +190,6 @@ export default function BlockVisualizerPage() {
       },
     ]);
     setIsMinting(false);
-
-    try {
-      confetti({ particleCount: 35, spread: 50, origin: { y: 0.6 } });
-    } catch {
-      // ignore
-    }
   };
 
   return (
@@ -214,7 +200,7 @@ export default function BlockVisualizerPage() {
             Interactive SHA-256 Hash-Chain & Tamper Detection Simulator
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Demonstrates to judges how altering any historical organ custody record breaks downstream cryptographic block links
+            Displays live blocks generated by organ transactions across Tabs 1–4 and lets you simulate a block tamper attack
           </p>
         </div>
 
@@ -236,7 +222,7 @@ export default function BlockVisualizerPage() {
             className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
             <Play className="w-3.5 h-3.5" />
-            <span>{isMinting ? 'Signing Block...' : `Mint Block #${blocks.length} (PoA)`}</span>
+            <span>{isMinting ? 'Signing Block...' : `Mint Audit Block #${blocks.length} (PoA)`}</span>
           </button>
         </div>
       </div>
@@ -250,7 +236,7 @@ export default function BlockVisualizerPage() {
                 Cryptographic Hash Mismatch Detected at Block #{tamperedBlockIndex}
               </strong>
               <span className="text-rose-800">
-                Altering Block #{tamperedBlockIndex} changed its SHA-256 output, invalidating Block #{tamperedBlockIndex + 1}&apos;s stored <code className="font-mono">prevHash</code> pointer.
+                Altering Block #{tamperedBlockIndex} changed its SHA-256 output, invalidating downstream <code className="font-mono">prevHash</code> links.
               </span>
             </div>
           </div>

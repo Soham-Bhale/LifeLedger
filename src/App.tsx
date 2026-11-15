@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import PresentationGuideModal from './components/PresentationGuideModal';
 import RoleServicePortal from './pages/RoleServicePortal';
 
 function AppShell() {
   const { currentUser } = useAuth();
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
-      <Navbar onOpenGuide={() => setIsGuideOpen(true)} />
+      <Navbar />
 
       <main className="flex-1 py-6 px-6">
         <div className="max-w-7xl mx-auto">
@@ -36,26 +34,16 @@ function AppShell() {
             </a>
             <span aria-hidden="true">·</span>
             <a
-              href="/api/verify/ORG-KID-8041"
+              href="/api/stats"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-slate-900 transition-colors font-mono"
             >
-              ORG-KID-8041 JSON
+              Ledger Stats JSON
             </a>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => setIsGuideOpen(true)}
-              className="hover:text-slate-900 transition-colors font-medium cursor-pointer"
-            >
-              6-Tab Launcher Guide
-            </button>
           </div>
         </div>
       </footer>
-
-      <PresentationGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 }

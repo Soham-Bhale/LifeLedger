@@ -263,13 +263,13 @@ async function runTestSuite() {
 
     console.log(`\n${bold(yellow('SECTION 6: Public Verification & Anti-Trafficking Endpoints'))}`);
 
-    res = await request('/api/verify/ORG-KID-8041');
-    assert(res.status === 200 && res.body.status === 'GENUINE_AUTHENTIC', 'Public verification of ORG-KID-8041 returns 200 GENUINE_AUTHENTIC with blockchain proof');
+    res = await request(`/api/verify/${uniqueOrganId}`);
+    assert(res.status === 200 && res.body.status === 'GENUINE_AUTHENTIC', 'Public verification of registered organ returns 200 GENUINE_AUTHENTIC with blockchain proof');
     assert(res.body.donorConsentCertificate && res.body.donorConsentCertificate.legalConsentCID, 'Verification includes cryptographic Donor Consent Certificate CID');
     assert(res.body.telemetry && res.body.telemetry.currentTemperatureCelsius !== undefined, 'Verification includes live IoT Cold-Chain Cryo-Telemetry');
 
-    res = await request('/api/verify/ORG-COR-3390');
-    assert(res.status === 200 && res.body.isQuarantined === true, 'Public verification of ORG-COR-3390 flags regulatory quarantine hold');
+    res = await request(`/api/verify/${alertOrganId}`);
+    assert(res.status === 200 && res.body.isQuarantined === true, 'Public verification of quarantined organ flags regulatory quarantine hold');
 
     res = await request('/api/verify/ORG-FAKE-999');
     assert(res.status === 404 && res.body.status === 'COUNTERFEIT_ALERT', 'Public verification of ORG-FAKE-999 detects missing record and returns 404 COUNTERFEIT_ALERT');

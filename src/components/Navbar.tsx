@@ -2,11 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import type { RoleId } from '../utils/roleWorkflow';
 
-interface NavbarProps {
-  onOpenGuide: () => void;
-}
-
-export default function Navbar({ onOpenGuide }: NavbarProps) {
+export default function Navbar() {
   const { currentUser, switchRole, demoUsers } = useAuth();
 
   return (
@@ -54,15 +50,9 @@ export default function Navbar({ onOpenGuide }: NavbarProps) {
           })}
         </nav>
 
-        {/* Zone 3: 1 primary action */}
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={onOpenGuide}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Judge Demo Guide
-          </button>
+        {/* Zone 3: Active Tab Service Context */}
+        <div className="hidden md:flex items-center shrink-0 text-xs font-mono text-slate-500">
+          Tab {currentUser.tabNumber}/6 · {currentUser.shortBadge}
         </div>
       </div>
     </header>
